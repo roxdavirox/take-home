@@ -1,7 +1,7 @@
 
 services:
   postgres:
-    image: postgres:16
+    image: postgres:16-alpine
     container_name: db
     restart: unless-stopped
     environment:
@@ -13,14 +13,19 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+    mem_limit: 256m
+    cpus: 0.1
+
   redis:
-    image: redis:latest
+    image: redis:7.2-alpine
     container_name: redis
     restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    mem_limit: 128m
+    cpus: 0.1
 
   backend:
     build:
@@ -38,15 +43,18 @@ services:
       - postgres
       - redis
     volumes:
-      - ./apps/backend/src:/app/apps/backend/src
-      # - ./packages:/app/packages
+      - ./apps/backend:/app/apps/backend:delegated
+      - ./packages:/app/packages:delegated
       - ./turbo.json:/app/turbo.json
       - ./tsconfig.json:/app/tsconfig.json
-      # - ./pnpm-lock.yaml:/app/pnpm-lock.yaml
       - ./pnpm-workspace.yaml:/app/pnpm-workspace.yaml
       - ./package.json:/app/package.json
       - ./.pnpm-store:/app/.pnpm-store
+      - /app/apps/backend/node_modules
     working_dir: /app/apps/backend
+    command: sh -c "bash ./init.sh"
+    mem_limit: 384m
+    cpus: 0.5
 
   web:
     build:
@@ -58,11 +66,17 @@ services:
     depends_on:
       - backend
     volumes:
-      - .:/app
+      - ./apps/web:/app/apps/web:delegated      # Hot reload com código-fonte
+      - ./packages:/app/packages:delegated       # Pacotes compartilhados do monorepo
+      - ./pnpm-workspace.yaml:/app/pnpm-workspace.yaml
+      - ./package.json:/app/package.json
+      - ./turbo.json:/app/turbo.json
       - ./.pnpm-store:/app/.pnpm-store
-      - /app/node_modules
+      - /app/apps/web/node_modules
     working_dir: /app/apps/web
-    # command: pnpm dev
+    command: sh -c "pnpm install && NODE_OPTIONS='--max-old-space-size=384' pnpm dev"
+    mem_limit: 768m
+    cpus: 0.6
 
 volumes:
   pgdata:
