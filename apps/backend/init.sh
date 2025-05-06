@@ -1,5 +1,5 @@
 #!/bin/bash
-# pnpm --filter backend exec prisma generate
+pnpm install
 pnpm --filter backend prisma:migrate:docker
 pnpm --filter backend prisma:generate:docker
 pnpm --filter backend prisma:seed
